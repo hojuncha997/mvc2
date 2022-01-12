@@ -162,7 +162,8 @@ public class ValidationItemControllerV4 {
         return "redirect:/validation/v4/items/{itemId}";
     }
 
-
+    //@ModelAttribute는 HTTP 요청 파라미터(URL 쿼리 스트링, POST form)를 다룰 때 사용한다.
+    //@RequestBody는 HTTP Body의 데이터를 객체로 변환할 때 사용한다. 주로 API JSON 요청을 다룰 때 사용한다.
 
 
 }
