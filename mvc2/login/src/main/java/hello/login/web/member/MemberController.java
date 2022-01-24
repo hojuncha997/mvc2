@@ -19,6 +19,7 @@ public class MemberController {
 
     private final MemberRepository memberRepository; //의존성 주입
 
+    //처음 /add로 접근했을 때, addMemberForm.html을 반환한다. 사용자가 폼에 값을 채워 제출을 누르면 아래의 @PostMapping("/add")로 전달된다.
     @GetMapping("/add")
     public String addForm(@ModelAttribute("member") Member member) {
         return "members/addMemberForm";
@@ -29,14 +30,24 @@ public class MemberController {
         // 그러나 IDE에 따라 인식하지 못하는 경우도 있으므로 적어준다.
     }
 
+
+    //폼에 담긴 정보가 여기로 전달된다. 전달될 후에는
     @PostMapping("/add")
     public String save(@Valid @ModelAttribute Member member, BindingResult result) {
+
         if (result.hasErrors()) {
             return "members/addMemberForm";
         }
+
         memberRepository.save(member);
         return "redirect:/";
     }
+
+
+
+
+
+
 
 
 

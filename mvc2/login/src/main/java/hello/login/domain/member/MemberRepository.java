@@ -20,6 +20,8 @@ public class MemberRepository {
         member.setId(++sequence);
         log.info("save: member={}", member);
         store.put(member.getId(), member);
+
+        log.info("MemberRepository의 store 맵에 값이 저장됨. member={}", member);
         return member;
     }
 
