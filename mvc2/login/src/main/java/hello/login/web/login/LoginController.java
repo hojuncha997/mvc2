@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
 
@@ -18,31 +20,13 @@ import javax.validation.Valid;
 @RequiredArgsConstructor //생성자를 자동으로 만들어준다. 이 때 final이 붙은 클래스에 대해서만 생성자가 생성된다.
 public class LoginController {
 
-    private final LoginService loginService; //이 코드에서 생성자가 제거되면 의존성 주입이 되지 않는다. 따라서 nullPointerException이 발생한다.
+    private final LoginService loginService; //이 코드에서 final이 제거되면 생성자 주입이 되지 않는다. 즉, 의존성 주입이 되지 않는다. 따라서 nullPointerException이 발생한다.
 //
 //    public LoginController(LoginService loginService) {
 //        this.loginService = loginService;
 //    }
 
-    /*Private field 'loginService' is never assigned
- Inspection info:
-Reports classes, methods, or fields in the specified inspection scope that are not used or unreachable from entry points.
-An entry point can be the main method, tests, classes mentioned outside the specified scope, classes accessible from module-info.java, and so on.
-You can also configure custom entry points by using name patterns or annotations.
-
-Example:
-public class Department {
-   private Organization myOrganization;
-}
-In this example, Department explicitly references Organization but if Department class itself is unused, then inspection will report both classes.
-The inspection also reports parameters that are not used by their methods and all method implementations and overriders, as well as local variables that are declared but not used.
-
-Note: Some unused members may not be reported during in-editor code highlighting.
-For performance reasons, a non-private member is checked only when its name rarely occurs in the project.
-To see all results, run the inspection by selecting Analyze | Inspect Code... or Analyze | Run Inspection by Name... from the main menu.*/
-
-    // final을 생략하는 실수 때문에 문제가 있었다.
-    // loginService.login(); 함수를 사용할 때 계속해서 nullPointerException이 발생하였다.
+    //생성자도 없었고, @Autowired도 사용하지 않았는데 의존성 오류가 발생하지 않았다는 점에서 @RequiredArgsConsturtor를 의심했어야 했음.
 
     @GetMapping("/login")
     public String loginForm(@ModelAttribute("loginForm") LoginForm form) {
@@ -50,8 +34,7 @@ To see all results, run the inspection by selecting Analyze | Inspect Code... or
     }
 
     @PostMapping("/login")
-    public String login(@Valid @ModelAttribute LoginForm form,
-                        BindingResult bindingResult) {
+    public String login(@Valid @ModelAttribute LoginForm form, BindingResult bindingResult, HttpServletResponse response) {
         //@ModelAttribute : 파라미터값을 객체에 바인딩
         //@Valid : 필드 검증
         //BindingResult : 바인딩 결과를 담음
@@ -74,7 +57,7 @@ To see all results, run the inspection by selecting Analyze | Inspect Code... or
         //login메소드의 반환값을 변수 loginMember에 대입한다. 로그인 정보가 맞으면 member에 조회 정보가 들어갈 거고, 없으면 null이 대입된다.
 
         log.info("login={}", loginMember);
-        log.info("씨발, 드디어 됐네. LoginService를 주입할 때 final을 붙이지 않아서 발생한 오류였음.");
+        log.info("씨발, 드디어 됐네. LoginService를 주입할 때 final을 붙이지 않아서 발생한 오류였음. @RequiredArgsConstructor를 알지 못했음");
 
 
         if(loginMember == null) {
@@ -85,9 +68,54 @@ To see all results, run the inspection by selecting Analyze | Inspect Code... or
             return "login/loginForm"; //로그인에 실패했으니 다시 로그인 정보 입력 화면으로 돌려 보낸다.
         }
 
-        //로그인에 성공하는 경우. 즉, 입력한 정보가 유효하여, 값을 조회하고, 그 값이 null이 아닌 경우. 홈으로 보낸다.
+        //로그인 성공처리. 즉, 입력한 정보가 유효하여, 값을 조회하고, 그 값이 null이 아닌 경우. 홈으로 보낸다.
+
+        Cookie idCookie = new Cookie("memberId", String.valueOf(loginMember.getId()));
+        //쿠키의 이름은 "memberId"이고 값은 회원의 ID이다
+        //loginMember.getLoginId()는 Long타입이다. 여기에서는 스트링 값으로 들어가야 하므로 String.valueOf()를 사용해 준다.
+        //이렇게 만든 쿠키는 서버가 HttpServletResponse를 클라이언트로 보낼 때 같이 넣어서 보내줘야 한다.
+
+        response.addCookie(idCookie); // response에 쿠키 담기
+
+        //쿠키에 세션정보를 주지 않으면 세션쿠키(브라우저 종료 시 종료되는 쿠키)가 된다. 웹브라우저는 종료 전까지 회원의 id를 서버에 계속 보내줄 것이다.
+
         return "redirect:/";
     }
+
+    //로그아웃
+    @PostMapping("/logout")
+    public String logout(HttpServletResponse response) {
+        //코드를 따로 메소드로 뺴서 보기 쉽게 만들었다.
+        expireCookie(response, "memberId");
+
+        return "redirect:/";
+
+    }
+
+    private void expireCookie(HttpServletResponse response, String cookieName) {
+        //쿠키를 날려버릴 것이다. 쿠키의 시간을 없애버리면 된다.
+
+        Cookie cookie = new Cookie(cookieName, null); //"cookieName"으로 되어 있었는데 쌍따옴표 빼버림
+        cookie.setMaxAge(0); //쿠키의 존속시간이 0이 되어버림.
+        response.addCookie(cookie);
+
+        /*
+        - 쿠키의 값은 브라우저, 또는 postman등 클라이언트가 위변조 할 수 있다.
+        - 쿠키에 보관된 정보는 훔쳐갈 수 있다.
+        - 해커가 쿠키를 가져가면 악의적인 요청을 계속 시도할 수 있다.
+
+        대안
+
+        - 쿠키에 중요한 값을 노출하지 않고 사용자별로 예측 불가능한 임의의 토큰(랜덤값)을 노출하고, 서버에서 토큰과 사용자 id를 매핑해서 인식한다. 그리고 서버에서 토큰을 관리한다.
+        - 토큰은 해커가 임의의 값을 넣어도 찾을 수 없도록 예상 불가능 해야 한다.
+        - 해커가 토큰을 훔치더라도 시간이 경과하면 사용 불가능하도록 서버에서 토큰의 만료시간을 짦게(예:30분) 유지한다. 또한 해킹이 의심되는 경우 서버에서 해당 토큰을 강제로 제거한다.
+
+        이런 모든 문제를 해결하는 방법으로는 서버 세션을 사용하는 방법이 있다.
+
+         */
+
+    }
+
 }
 
 
