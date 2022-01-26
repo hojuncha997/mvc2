@@ -65,7 +65,7 @@ public class HomeController {
 
 
 
-    @GetMapping("/") //세션 사용하기
+//    @GetMapping("/") //세션 사용하기
     public String homeLoginV2(HttpServletRequest request, Model model)  {
 
         //세션관리자에 저장된 회원 정보 확인
@@ -79,6 +79,26 @@ public class HomeController {
         model.addAttribute("member", member);
         return "loginHome"; //로그인 사용자 화면이 있는 전용 화면
 
+    }
+
+
+
+
+
+    @GetMapping("/") //세션 사용하기
+    public String homeLoginV3(HttpServletRequest request, Model model)  {
+        //여기부터
+
+        //세션관리자에 저장된 회원 정보 확인
+        Member member = (Member)sessionManager.getSession(request);
+
+        //로그인
+        if(member == null) {
+            return "home";
+        }
+
+        model.addAttribute("member", member);
+        return "loginHome"; //로그인 사용자 화면이 있는 전용 화면
     }
 
 
