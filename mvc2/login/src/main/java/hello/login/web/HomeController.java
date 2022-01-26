@@ -2,6 +2,7 @@ package hello.login.web;
 
 import hello.login.domain.member.Member;
 import hello.login.domain.member.MemberRepository;
+import hello.login.web.session.SessionManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -9,17 +10,19 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import javax.servlet.http.HttpServletRequest;
+
 @Slf4j
 @Controller
-//@RequiredArgsConstructor //final처리한 클래스에 대해서 생성자를 자동으로 만들어 줌.
+@RequiredArgsConstructor //final처리한 클래스에 대해서 생성자를 자동으로 만들어 줌.
 public class HomeController {
 
     private final MemberRepository memberRepository;
+//    public HomeController( MemberRepository memberRepository) { //생성자 주입. @RequirdArgsConstructor와 같다. 강의에서는 어노테이션을 사용하였다.
+//        this.memberRepository = memberRepository;
+//    }
 
-    public HomeController( MemberRepository memberRepository) { //생성자 주입. @RequirdArgsConstructor와 같다. 강의에서는 어노테이션을 사용하였다.
-        this.memberRepository = memberRepository;
-
-    }
+    private final SessionManager sessionManager;
 
 
 
@@ -30,7 +33,7 @@ public class HomeController {
 
 
 
-    @GetMapping("/")
+//    @GetMapping("/") //쿠키 사용하기
     public String homeLogin( @CookieValue(name = "memberId", required = false) Long memberId, Model model)  {
         //쿠키는 HttpServletRequest에서 꺼낼 수도 있다. 여기서는 @CookieValue를 이용하여 쿠키를 받아온다.
         //required를 false로 한 것은 로그인 하지 않은, 쿠키 값이 없는 사용자도 들어올 수 있어야 하기 때문이다.
@@ -52,6 +55,28 @@ public class HomeController {
         }
 
         model.addAttribute("member", loginMember);
+        return "loginHome"; //로그인 사용자 화면이 있는 전용 화면
+
+    }
+
+
+
+
+
+
+
+    @GetMapping("/") //세션 사용하기
+    public String homeLoginV2(HttpServletRequest request, Model model)  {
+
+        //세션관리자에 저장된 회원 정보 확인
+        Member member = (Member)sessionManager.getSession(request);
+
+        //로그인
+        if(member == null) {
+            return "home";
+        }
+
+        model.addAttribute("member", member);
         return "loginHome"; //로그인 사용자 화면이 있는 전용 화면
 
     }

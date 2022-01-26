@@ -2,6 +2,7 @@ package hello.login.web.login;
 
 import hello.login.domain.login.LoginService;
 import hello.login.domain.member.Member;
+import hello.login.web.session.SessionManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
@@ -21,6 +23,7 @@ import javax.validation.Valid;
 public class LoginController {
 
     private final LoginService loginService; //이 코드에서 final이 제거되면 생성자 주입이 되지 않는다. 즉, 의존성 주입이 되지 않는다. 따라서 nullPointerException이 발생한다.
+    private final SessionManager sessionManager;
 //
 //    public LoginController(LoginService loginService) {
 //        this.loginService = loginService;
@@ -33,7 +36,7 @@ public class LoginController {
         return "login/loginForm";
     }
 
-    @PostMapping("/login")
+//    @PostMapping("/login")
     public String login(@Valid @ModelAttribute LoginForm form, BindingResult bindingResult, HttpServletResponse response) {
         //@ModelAttribute : 파라미터값을 객체에 바인딩
         //@Valid : 필드 검증
@@ -82,8 +85,58 @@ public class LoginController {
         return "redirect:/";
     }
 
+
+
+
+    @PostMapping("/login")
+    public String loginV2(@Valid @ModelAttribute LoginForm form, BindingResult bindingResult, HttpServletResponse response) {
+        //@ModelAttribute : 파라미터값을 객체에 바인딩
+        //@Valid : 필드 검증
+        //BindingResult : 바인딩 결과를 담음
+
+        //바인딩 실패 시 다시 로그인 정보 입력 창으롤 보냄
+        if(bindingResult.hasErrors()) {
+            return "login/loginForm";
+        }
+        log.info("폼={}",form);
+        log.info("폼.getLoginId={}",form.getLoginId());
+        log.info("폼.getPassword={}",form.getPassword());
+
+        //바인딩 성공 시
+
+        Member loginMember = loginService.login(form.getLoginId(), form.getPassword());
+        log.info("login? {}", loginMember);
+
+
+        //파라미터로 넘어온 form객체의 id와 pw정보를 loginService에 속한 login메소드에 넣고 반환값을 기다린다.
+        //login메소드의 반환값을 변수 loginMember에 대입한다. 로그인 정보가 맞으면 member에 조회 정보가 들어갈 거고, 없으면 null이 대입된다.
+
+        log.info("login={}", loginMember);
+        log.info("씨발, 드디어 됐네. LoginService를 주입할 때 final을 붙이지 않아서 발생한 오류였음. @RequiredArgsConstructor를 알지 못했음");
+
+
+        if(loginMember == null) {
+            log.info("loginMember는 null이 아님");
+            bindingResult.reject("loginFail", "아이디 또는 비밀번호가 맞지 않습니다.");
+            //이건 필드의 문제가 아니라 객체 전체의 문제로 간주되므로, global오류 메시지를 내보낸다.
+
+            return "login/loginForm"; //로그인에 실패했으니 다시 로그인 정보 입력 화면으로 돌려 보낸다.
+        }
+
+        //로그인 성공처리. 즉, 입력한 정보가 유효하여, 값을 조회하고, 그 값이 null이 아닌 경우. 홈으로 보낸다.
+
+        //세션 관리자를 통해 세션을 생성하고 회원 데이터를 보관한다
+        sessionManager.createSession(loginMember, response);
+
+        return "redirect:/";
+    }
+
+
+
+
+
     //로그아웃
-    @PostMapping("/logout")
+//    @PostMapping("/logout")
     public String logout(HttpServletResponse response) {
         //코드를 따로 메소드로 뺴서 보기 쉽게 만들었다.
         expireCookie(response, "memberId");
@@ -91,6 +144,31 @@ public class LoginController {
         return "redirect:/";
 
     }
+
+
+
+
+
+    @PostMapping("/logout")
+    public String logoutV2(HttpServletRequest request) {
+        //코드를 따로 메소드로 뺴서 보기 쉽게 만들었다.
+        sessionManager.expire(request); //리퀘스트의 쿠키 값을 꺼내서 그걸 만료시킨다.
+
+
+
+        return "redirect:/";
+
+    }
+
+
+
+
+
+
+
+
+
+
 
     private void expireCookie(HttpServletResponse response, String cookieName) {
         //쿠키를 날려버릴 것이다. 쿠키의 시간을 없애버리면 된다.
